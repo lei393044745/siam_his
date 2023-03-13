@@ -12,3 +12,4 @@ from .trackingnet import TrackingNet
 from .vid import ImageNetVID
 from .uavdt import UAVDT
 from .visdrone import VisDrone
+from .whispers import Whispers
