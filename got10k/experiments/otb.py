@@ -7,10 +7,11 @@ import matplotlib
 import json
 from tqdm import tqdm
 from PIL import Image
-
+import logging
 from ..datasets import OTB
 from ..utils.metrics import rect_iou, center_error
 from ..utils.viz import show_frame
+
 
 class ExperimentOTB(object):
     """Experiment pipeline and evaluation toolkit for OTB dataset.
@@ -35,6 +36,38 @@ class ExperimentOTB(object):
         # converges to the average overlap (AO)
         self.nbins_iou = 21
         self.nbins_ce = 51
+        log_dir = 'D:\\py\\HSI\\SiamFC\\log'
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s | %(message)s",
+            handlers=[
+                logging.FileHandler(os.path.join(log_dir, "log.txt")),
+                logging.StreamHandler(),
+            ],
+        )
+
+    def box_iou_xywh(self, box1, box2):
+        x1min, y1min = box1[0] - box1[2]/2.0, box1[1] - box1[3]/2.0
+        x1max, y1max = box1[0] + box1[2]/2.0, box1[1] + box1[3]/2.0
+        s1 = box1[2] * box1[3]
+
+        x2min, y2min = box2[0] - box2[2]/2.0, box2[1] - box2[3]/2.0
+        x2max, y2max = box2[0] + box2[2]/2.0, box2[1] + box2[3]/2.0
+        s2 = box2[2] * box2[3]
+
+        xmin = np.maximum(x1min, x2min)
+        ymin = np.maximum(y1min, y2min)
+        xmax = np.minimum(x1max, x2max)
+        ymax = np.minimum(y1max, y2max)
+        inter_h = np.maximum(ymax - ymin, 0.)
+        inter_w = np.maximum(xmax - xmin, 0.)
+        intersection = inter_h * inter_w
+
+        union = s1 + s2 - intersection
+        iou = intersection / union
+        return iou
 
     def run(self, tracker, visualize=False):
 
@@ -52,11 +85,24 @@ class ExperimentOTB(object):
             #     print('Found results, skipping', seq_name)
             #     continue
             #tracking loop
-            boxes, times = tracker.track(img_files, anno[0, :], visualize=visualize)
+            count = 0
+            if self.dataset.type == 'HSI':
+                boxes, times = tracker.track(img_files, anno[0, :], visualize=visualize, X2Cube =  self.dataset.X2Cube, type = self.dataset.type)
+            else:
+                boxes, times = tracker.track(img_files, anno[0, :], visualize=visualize)
+            # for i in range(len(boxes)):
+            #     iou = self.box_iou_xywh(boxes[i], anno[i])
+            #     if iou == 0:
+            #         count += 1
+            #     # logging.info(seq_name, i)
+            #         print(seq_name, i)
+            # # logging.info(count)
+            # print(count)
 
             assert len(boxes) == len(anno)
             # record results
             self._record(record_file, boxes, times)
+        print(count)
 
     def report(self, tracker_names):
 

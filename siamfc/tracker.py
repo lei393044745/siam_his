@@ -125,7 +125,7 @@ class SiamFCTracker(Tracker):  #定义一个追踪器
         
         #对所有的图片进行预处理，得到127x127大小的patch
         # exemplar features
-        z = torch.from_numpy(z).cuda().permute(2, 0, 1).unsqueeze(0).float() 
+        z = torch.from_numpy(z).cuda().permute(2, 0, 1).unsqueeze(0).float()
 
         self.kernel = self.net.features(z)
     
@@ -188,14 +188,17 @@ class SiamFCTracker(Tracker):  #定义一个追踪器
 
         return box
     
-    def track(self, img_files, box, visualize=False):  # x,y,w,h
+    def track(self, img_files, box, visualize=False, X2Cube = None, type = None):  # x,y,w,h
         frame_num = len(img_files)
         boxes = np.zeros((frame_num, 4))
         boxes[0] = box
         times = np.zeros(frame_num)
 
         for f, img_file in enumerate(img_files):
-            img = read_image(img_file)
+            if type == 'HSI':
+                img = np.array(X2Cube(img_file), dtype=np.float)
+            else:
+                img = read_image(img_file)
             begin = time.time()
             if f == 0:
                 self.init(img, box)

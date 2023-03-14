@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # e = ExperimentOTB(root_dir, version=2013)
 
     root_dir = os.path.abspath('D:\\BaiduNetdiskDownload\\whispers')
-    e = ExperimentWhispers(root_dir, subset='test')
+    e = ExperimentWhispers(root_dir, subset='test', type='HSI')
 
     # root_dir = os.path.abspath('E:\\OTB100')
     # e = ExperimentOTB(root_dir, version=2015)
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     #root_dir = os.path.abspath('datasets/LaSOT')
     #e = ExperimentLaSOT(root_dir)
 
-    # e.run(tracker,visualize=True)#默认不开启可视化
+    e.run(tracker,visualize=False)#默认不开启可视化
 
     prec_score,succ_score,succ_rate=e.report([tracker.name])
     

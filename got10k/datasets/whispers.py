@@ -4,6 +4,7 @@ import os
 import glob
 import numpy as np
 import io
+import cv2
 from itertools import chain
 
 
@@ -48,6 +49,24 @@ class Whispers(object):
     
   def __len__(self):
     return len(self.seq_names)
+
+  def X2Cube(self, img,B=[4, 4],skip = [4, 4],bandNumber=16):
+    img = cv2.imread(img, -1)
+    # Parameters
+    M, N = img.shape
+    col_extent = N - B[1] + 1
+    row_extent = M - B[0] + 1
+    # Get Starting block indices
+    start_idx = np.arange(B[0])[:, None] * N + np.arange(B[1])
+    # Generate Depth indeces
+    didx = M * N * np.arange(1)
+    start_idx = (didx[:, None] + start_idx.ravel()).reshape((-1, B[0], B[1]))
+    # Get offsetted indices across the height and width of input array
+    offset_idx = np.arange(row_extent)[:, None] * N + np.arange(col_extent)
+    # Get all actual indices & index into input array for final output
+    out = np.take(img, start_idx.ravel()[:, None] + offset_idx[::skip[0], ::skip[1]].ravel())
+    out = np.transpose(out)
+    DataCube = out.reshape(M//4, N//4,bandNumber )
+    return DataCube
     
 # s = Whispers(root_dir='D:\\BaiduNetdiskDownload\\whispers', type='HSI')
-# s.__getitem__(1)
