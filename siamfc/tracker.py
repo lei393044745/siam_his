@@ -92,7 +92,7 @@ class SiamFCTracker(Tracker):  #定义一个追踪器
     def init(self, img, box):
         # set to evaluation mode
         self.net.eval() 
-
+        channel_num = img.shape[2]
         # convert box to 0-indexed and center based [y, x, h, w]
         box = np.array([
             box[1] - 1 + (box[3] - 1) / 2,
@@ -119,31 +119,47 @@ class SiamFCTracker(Tracker):  #定义一个追踪器
         # z是初始模板的大小 x是搜索区域
         # exemplar image 
         self.avg_color = np.mean(img, axis=(0, 1)) # 计算RGB通道的均值,使用图像均值进行padding
-        z = crop_and_resize(img, self.center, self.z_sz,
-            out_size=config.exemplar_sz,
-            border_value=self.avg_color)
+        z = []
+        for i in range(3, channel_num, 3):
+            z += [crop_and_resize(img[:,:,i-3:i], self.center, self.z_sz,
+                out_size=config.exemplar_sz,
+                border_value=self.avg_color[i-3:i])]
+        z = np.stack(z, axis=0)
+        # z = crop_and_resize(img, self.center, self.z_sz,
+        #     out_size=config.exemplar_sz,
+        #     border_value=self.avg_color)
         
         #对所有的图片进行预处理，得到127x127大小的patch
         # exemplar features
-        z = torch.from_numpy(z).cuda().permute(2, 0, 1).unsqueeze(0).float()
-
-        self.kernel = self.net.features(z)
+        z = torch.from_numpy(z).cuda().permute(0,3,1,2).float()
+        
+        features = []
+        for i in range(channel_num//3):
+            z_ = z[i, :, :,:]
+            features.append(self.net.features(z_.unsqueeze(0)))
+        self.kernel = features
     
     @torch.no_grad()      #
     def update(self, img):
         # set to evaluation mode
         self.net.eval()
-
+        channel_num = img.shape[2]
         # search images
-        x = [crop_and_resize(
-            img, self.center, self.x_sz * f,
-            out_size=config.instance_sz,
-            border_value=self.avg_color) for f in self.scale_factors]
+        x = []
+        for i in range(3, channel_num, 3):
+            x += [crop_and_resize(
+                img[:,:,i - 3:i], self.center, self.x_sz * f,
+                out_size=config.instance_sz,
+                border_value=self.avg_color[i-3:i]) for f in self.scale_factors]
+            
         x = np.stack(x, axis=0)
         x = torch.from_numpy(x).cuda().permute(0, 3, 1, 2).float()
-        
+        x_features = []
+        for i in range(x.size(0)):
+            x_ = x[i, :, :,:]
+            x_features.append(self.net.features(x_.unsqueeze(0)))
         # responses
-        x = self.net.features(x)
+        x = x_features
         responses = self.net.head(self.kernel, x)
         responses = responses.squeeze(1).cpu().numpy()
 
@@ -207,7 +223,14 @@ class SiamFCTracker(Tracker):  #定义一个追踪器
             times[f] = time.time() - begin
 
             if visualize:
-                show_image(img, boxes[f, :])
+                if type=='HSI':
+                    t = img_file.split('\\')
+                    t[-1] = t[-1][:-3] + 'jpg'
+                    t[-2] = 'HSI-FalseColor'
+                    img_show = read_image('\\'.join(t))
+                    show_image(img_show, boxes[f, :])
+                else:
+                    show_image(img, boxes[f, :])
 
         return boxes, times
     

@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import torch.nn as nn
 import torch.nn.functional as F
-
+import torch
 
 __all__ = ['SiamFC']
 
@@ -14,7 +14,13 @@ class SiamFC(nn.Module):
         self.out_scale = out_scale
     
     def forward(self, z, x):
-        return self._fast_xcorr(z, x) * self.out_scale
+        out = self._fast_xcorr(torch.cat(z,dim=0), torch.cat(x,dim=0)) * self.out_scale
+        
+        res = []
+        for i in range(1,6):
+            res.append(out[(i-1)*3:i*3,:,:,:])
+            
+        return sum(res)
     
     def _fast_xcorr(self, z, x):
         # fast cross correlation
